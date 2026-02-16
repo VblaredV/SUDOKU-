@@ -14,6 +14,11 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("SUDOKU BV")
 clock = pygame.time.Clock()
 
+cheat_code = []
+
+CHEAT_SEQUENCE = [pygame.K_v, pygame.K_i, pygame.K_n, pygame.K_d, 
+                  pygame.K_i, pygame.K_g, pygame.K_o, pygame.K_4]
+
 # ===== МУЗЫКА =====
 pygame.mixer.init()
 MUSIC_FOLDER = os.path.join("assets", "music")
@@ -368,16 +373,19 @@ def exp_choice():
         clock.tick(60)
 
 def main_menu():
+    global cheat_code  # Добавляем глобальную переменную
+    
     while True:
         draw_bg()
         mouse = pygame.mouse.get_pos()
         theme = get_theme()
         
         btns = [
-            Button(400, 300, 400, 80, "ИГРАТЬ", theme.button_color, theme.button_hover),
-            Button(400, 400, 400, 80, "УРОВНИ", theme.button_color, theme.button_hover),
-            Button(400, 500, 400, 80, "НАСТРОЙКИ", theme.button_color, theme.button_hover),
-            Button(400, 600, 400, 80, "ВЫХОД", theme.button_color, theme.button_hover)
+            Button(400, 250, 400, 80, "ИГРАТЬ", theme.button_color, theme.button_hover),
+            Button(400, 350, 400, 80, "УРОВНИ", theme.button_color, theme.button_hover),
+            Button(400, 450, 400, 80, "СТАТИСТИКА", theme.button_color, theme.button_hover),
+            Button(400, 550, 400, 80, "НАСТРОЙКИ", theme.button_color, theme.button_hover),
+            Button(400, 650, 400, 80, "ВЫХОД", theme.button_color, theme.button_hover)
         ]
         
         # ===== УКРАШЕННЫЙ ЗАГОЛОВОК =====
@@ -449,12 +457,28 @@ def main_menu():
                 pygame.quit()
                 sys.exit()
             
+            
+            if e.type == pygame.KEYDOWN:
+                cheat_code.append(e.key)
+                # Оставляем только последние 8 нажатий
+                if len(cheat_code) > len(CHEAT_SEQUENCE):
+                    cheat_code.pop(0)
+                
+                # Проверяем, совпадает ли код
+                if cheat_code == CHEAT_SEQUENCE:
+                    activate_cheat()
+                    cheat_code.clear()
+                    print("🎮 ЧИТ-КОД НА ВСЁ АКТИВИРОВАН!")
+            
+            # ===== ОБРАБОТКА КНОПОК =====
             for btn in btns:
                 if btn.is_clicked(mouse, e):
                     if btn.text == "ИГРАТЬ": 
                         size_menu()
                     elif btn.text == "УРОВНИ": 
                         progress_menu()
+                    elif btn.text == "СТАТИСТИКА":
+                        show_mode_stats()
                     elif btn.text == "НАСТРОЙКИ": 
                         settings.show_settings(screen, clock, font_mid, font_small, player_settings, save_system)
                     elif btn.text == "ВЫХОД":
@@ -462,6 +486,7 @@ def main_menu():
                         pygame.quit()
                         sys.exit()
             
+            # ===== ОБРАБОТКА МУЗЫКАЛЬНОГО ПЛЕЕРА =====
             if music_btns:
                 prev, play, next_btn = music_btns
                 if prev.collidepoint(mouse) and e.type == pygame.MOUSEBUTTONDOWN:
@@ -471,11 +496,14 @@ def main_menu():
                 if next_btn.collidepoint(mouse) and e.type == pygame.MOUSEBUTTONDOWN:
                     next_track()
         
+        # ===== ОТРИСОВКА КНОПОК =====
         for btn in btns:
             btn.check_hover(mouse)
             btn.draw(screen)
+        
         pygame.display.flip()
         clock.tick(60)
+
 
 def progress_menu():
     while True:
@@ -505,6 +533,13 @@ def progress_menu():
         title_height = text_height + padding * 2
         title_x = center_x - title_width // 2
         title_y = 80
+
+        # ;d
+        if theme.name == "Фиолетовая":
+            hint_font = pygame.font.Font(None, 20)
+            screen.blit(hint_font.render("V...", True, (200, 150, 255)), (1150, 650))
+            screen.blit(hint_font.render("...I...", True, (200, 150, 255)), (1150, 670))
+            screen.blit(hint_font.render("...N...", True, (200, 150, 255)), (1150, 690))
         
         # Тень
         shadow_rect = pygame.Rect(title_x + 3, title_y + 3, title_width, title_height)
@@ -832,6 +867,19 @@ def level_select(size):
         
         back = Button(500, 750, 200, 60, "НАЗАД", GRAY, DARK_GRAY, 48)
         
+        if theme.name == "Фиолетовая" and size == 9:
+            # Маленькие буквы вокруг кнопок уровней
+            hint_font = pygame.font.Font(None, 18)
+            screen.blit(hint_font.render("V", True, (200, 150, 255)), (340, 240))
+            screen.blit(hint_font.render("I", True, (200, 150, 255)), (430, 240))
+            screen.blit(hint_font.render("N", True, (200, 150, 255)), (520, 240))
+            screen.blit(hint_font.render("D", True, (200, 150, 255)), (610, 240))
+            screen.blit(hint_font.render("I", True, (200, 150, 255)), (700, 240))
+            screen.blit(hint_font.render("G", True, (200, 150, 255)), (790, 240))
+            screen.blit(hint_font.render("O", True, (200, 150, 255)), (880, 240))
+            screen.blit(hint_font.render("4", True, (200, 150, 255)), (970, 240))
+            
+
         # ===== ЗАГОЛОВОК ПО ЦЕНТРУ =====
         title_text = f"УРОВНИ {size}x{size}"
         title = font_big.render(title_text, True, theme.accent_color)
@@ -886,33 +934,44 @@ def level_select(size):
         clock.tick(60)
 
 def start_game(size, level):
-    # Создаем игру
+    # Получаем режим игры из настроек
+    game_mode = player_settings.get('mode', 'trial')
+    
+    # Создаем игру и передаем ей режим
     game = Game(size, level, show_rules=False, emoji_font=font_emoji)
+    game.game_mode = game_mode  # Передаем режим в игру
     
     timer_paused = False
     paused_time = 0
+    game_started = False
     
-    # Проверяем режим игрока
-    if player_settings['experience'] == 'novice':
-        # НОВИЧОК - показываем правила перед каждым уровнем
-        timer_paused = True
-        print(f"⏸️ Таймер на паузе (новичок, уровень {level})")
-        # Показываем правила
-        game.show_rules_popup(screen, font_mid)
-        # После закрытия правил запускаем таймер
-        game.start_time = time.time()
-        timer_paused = False
-        print(f"▶️ Таймер запущен (новичок, уровень {level})")
+    # Проверяем режим
+    if game_mode == 'study':
+        # Режим изучения - таймер не нужен, сразу показываем победу при решении
+        print("📚 Режим изучения - таймер отключен")
+        game_started = True
+        # В режиме изучения не создаем start_time
     else:
-        # ОПЫТНЫЙ - сразу запускаем таймер
-        game.start_time = time.time()
-        print(f"⏱️ Таймер запущен (опытный, уровень {level})")
+        # Для trial и tournament - таймер нужен
+        if player_settings['experience'] == 'novice' and not hasattr(start_game, 'rules_shown'):
+            # Показываем правила для новичка
+            timer_paused = True
+            game.show_rules_popup(screen, font_mid)
+            setattr(start_game, 'rules_shown', True)
+            game.start_time = time.time()
+            timer_paused = False
+            game_started = True
+            print(f"⚡ {game_mode} режим - таймер запущен после правил")
+        else:
+            game.start_time = time.time()
+            game_started = True
+            print(f"⚡ {game_mode} режим - таймер запущен")
     
     victory_timer = None
     victory_delay = 0.5
-    last_state = None
+    last_check_time = 0
+    check_interval = 0.5
     
-    # Для проверки завершения 12x12
     game_completed = False
     
     while True:
@@ -932,17 +991,14 @@ def start_game(size, level):
                     if back.collidepoint(mouse): 
                         return
                     if rules.collidepoint(mouse):
-                        # Открытие правил по кнопке (для всех режимов)
-                        if not timer_paused and hasattr(game, 'start_time'):
+                        if game_mode != 'study' and game_started and not timer_paused and hasattr(game, 'start_time'):
                             paused_time = time.time() - game.start_time
                             timer_paused = True
                             print(f"⏸️ Таймер на паузе: {paused_time:.2f} сек")
                         
-                        # Показываем правила
                         game.show_rules_popup(screen, font_mid)
                         
-                        # Возобновляем
-                        if hasattr(game, 'start_time'):
+                        if game_mode != 'study' and game_started and hasattr(game, 'start_time') and timer_paused:
                             game.start_time = time.time() - paused_time
                             timer_paused = False
                             print(f"▶️ Таймер возобновлен: {paused_time:.2f} сек")
@@ -955,7 +1011,8 @@ def start_game(size, level):
                             game.highlight_cells.clear()
                             victory_timer = None
             
-            if e.type == pygame.KEYDOWN and game.selected:
+            if e.type == pygame.KEYDOWN and game.selected and game_started:
+                # Обычные цифры
                 if e.key in [pygame.K_1, pygame.K_KP1]: game.place_number(1)
                 elif e.key in [pygame.K_2, pygame.K_KP2]: game.place_number(2)
                 elif e.key in [pygame.K_3, pygame.K_KP3]: game.place_number(3)
@@ -965,7 +1022,20 @@ def start_game(size, level):
                 elif e.key in [pygame.K_7, pygame.K_KP7]: game.place_number(7) if size > 6 else None
                 elif e.key in [pygame.K_8, pygame.K_KP8]: game.place_number(8) if size > 6 else None
                 elif e.key in [pygame.K_9, pygame.K_KP9]: game.place_number(9) if size > 6 else None
-                elif e.key in [pygame.K_DELETE, pygame.K_BACKSPACE]: game.delete_number()
+                
+                # Для 12x12 - поддержка 10, 11, 12 через комбинации
+                elif size == 12:
+                    if e.key == pygame.K_0:  # 0 = 10
+                        game.place_number(10)
+                    elif e.key == pygame.K_MINUS:  # - = 11
+                        game.place_number(11)
+                    elif e.key == pygame.K_EQUALS:  # = = 12
+                        game.place_number(12)
+                
+                # DELETE/BACKSPACE
+                elif e.key in [pygame.K_DELETE, pygame.K_BACKSPACE]:
+                    game.delete_number()
+                
                 victory_timer = None
             
             if music_btns:
@@ -977,200 +1047,207 @@ def start_game(size, level):
                 if next_btn.collidepoint(mouse) and e.type == pygame.MOUSEBUTTONDOWN:
                     next_track()
         
-        # Проверяем победу только если таймер существует и не на паузе
-        if hasattr(game, 'start_time') and not timer_paused:
-            if game.check_mode:
-                game.check_board()
-                
-                all_filled = True
-                for r in range(size):
-                    for c in range(size):
-                        if game.board[r][c] == 0:
-                            all_filled = False
-                            break
-                    if not all_filled:
-                        break
-                
-                has_errors = False
-                for r in range(size):
-                    for c in range(size):
-                        if (r, c) in game.highlight_cells and game.highlight_cells[(r, c)] == LIGHT_RED:
-                            has_errors = True
-                            break
-                    if has_errors:
-                        break
-                
-                is_correct = game.check_win_condition()
-                
-                current_state = (all_filled, has_errors, is_correct)
-                if last_state != current_state:
-                    print(f"all_filled: {all_filled}, has_errors: {has_errors}, is_correct: {is_correct}")
-                    last_state = current_state
-                
-                if all_filled and not has_errors and is_correct:
-                    if victory_timer is None:
-                        victory_timer = time.time()
-                        print(f"🎉 Условия победы выполнены! Таймер запущен")
-                    
-                    elif time.time() - victory_timer >= victory_delay:
+        # Проверяем состояние игры
+        current_time = time.time()
+        if game_started and not timer_paused and current_time - last_check_time > check_interval:
+            last_check_time = current_time
+            
+            # Проверяем победу (для всех режимов)
+            if game.check_victory_condition():
+                if victory_timer is None:
+                    victory_timer = time.time()
+                    print("🎉 Судоку решено правильно! Проверка...")
+                elif time.time() - victory_timer >= victory_delay:
+                    # Победа!
+                    if game_mode == 'study':
+                        game.stars = 3
+                        win_message = "ПОБЕДА! +3 ⭐"
+                        elapsed = 0
+                    elif game_mode == 'tournament':
                         elapsed = time.time() - game.start_time
-                        
-                        if size == 3:
-                            if elapsed < 10:
-                                game.stars = 3
-                            elif elapsed < 15:
-                                game.stars = 2
-                            elif elapsed < 20:
-                                game.stars = 1
-                            else:
-                                game.stars = 0
-                        elif size == 6:
-                            if elapsed < 25:
-                                game.stars = 3
-                            elif elapsed < 35:
-                                game.stars = 2
-                            elif elapsed < 45:
-                                game.stars = 1
-                            else:
-                                game.stars = 0
-                        elif size == 9:
-                            if elapsed < 45:
-                                game.stars = 3
-                            elif elapsed < 55:
-                                game.stars = 2
-                            elif elapsed < 65:
-                                game.stars = 1
-                            else:
-                                game.stars = 0
-                        else:  # size == 12
-                            if elapsed < 60:
-                                game.stars = 3
-                            elif elapsed < 80:
-                                game.stars = 2
-                            elif elapsed < 100:
-                                game.stars = 1
-                            else:
-                                game.stars = 0
-                        
-                        print(f"🏆 {size}x{size} Время: {elapsed:.2f} сек -> {game.stars} ⭐")
-                        
-                        theme = get_theme()
-                        
-                        # Проверяем, не завершена ли игра полностью
-                        if size == 12 and level == 30 and game.stars > 0:
-                            # Проверяем, все ли 30 уровней 12x12 пройдены
-                            all_12x12_done = len(level_system.stars[12]) >= 30
-                            if all_12x12_done and not game_completed:
-                                game_completed = True
-                                # Показываем титры
-                                show_credits(screen, font_big, font_mid, font_small, theme)
-                                return
-                        
-                        if game.stars > 0:
-                            play_victory_sound()
-                            win_text = f"ПОБЕДА! {game.stars}"
-                            win = font_mid.render(win_text, True, theme.accent_color)
-                            star_text = font_emoji_big.render("⭐", True, theme.accent_color)
-                            next_level = level + 1 if level < 30 else 1
-                            next_text = f"СЛЕДУЮЩИЙ УРОВЕНЬ {next_level}"
-                            window_width, window_height = 500, 320
-                        else:
-                            play_defeat_sound()
-                            win_text = "ВЫ ПРОИГРАЛИ"
-                            win = font_mid.render(win_text, True, RED)
-                            star_text = None
-                            next_text = "ПОПРОБУЙТЕ ЕЩЕ РАЗ"
-                            window_width, window_height = 500, 280
-                        
-                        window_x = (WIDTH - window_width) // 2
-                        window_y = (HEIGHT - window_height) // 2
-                        
-                        s = pygame.Surface((WIDTH, HEIGHT))
-                        s.set_alpha(180)
-                        s.fill(BLACK)
-                        screen.blit(s, (0,0))
-                        
-                        border_color = theme.accent_color if game.stars > 0 else RED
-                        pygame.draw.rect(screen, WHITE, (window_x, window_y, window_width, window_height), border_radius=15)
-                        pygame.draw.rect(screen, border_color, (window_x, window_y, window_width, window_height), 4, border_radius=15)
-                        
-                        if game.stars > 0:
-                            win_rect = win.get_rect(center=(WIDTH//2 - 20, window_y + 70))
-                            screen.blit(win, win_rect)
-                            star_rect = star_text.get_rect(midleft=(win_rect.right + 5, win_rect.centery))
-                            screen.blit(star_text, star_rect)
-                        else:
-                            win_rect = win.get_rect(center=(WIDTH//2, window_y + 70))
-                            screen.blit(win, win_rect)
-                        
-                        next_surface = font_small.render(next_text, True, theme.text_color if game.stars > 0 else RED)
-                        next_rect = next_surface.get_rect(center=(WIDTH//2, window_y + 130))
-                        screen.blit(next_surface, next_rect)
-                        
-                        if game.stars > 0:
-                            continue_btn = pygame.Rect(WIDTH//2 - 120, window_y + 170, 240, 50)
-                            restart_btn = pygame.Rect(WIDTH//2 - 120, window_y + 230, 240, 50)
-                            
-                            pygame.draw.rect(screen, theme.button_color, continue_btn, border_radius=10)
-                            pygame.draw.rect(screen, WHITE, continue_btn, 3, border_radius=10)
-                            continue_text = font_small.render("ДАЛЕЕ", True, WHITE)
-                            continue_rect = continue_text.get_rect(center=continue_btn.center)
-                            screen.blit(continue_text, continue_rect)
-                            
-                            pygame.draw.rect(screen, theme.button_color, restart_btn, border_radius=10)
-                            pygame.draw.rect(screen, WHITE, restart_btn, 3, border_radius=10)
-                            restart_text = font_small.render("ЗАНОВО", True, WHITE)
-                            restart_rect = restart_text.get_rect(center=restart_btn.center)
-                            screen.blit(restart_text, restart_rect)
-                        else:
-                            restart_btn = pygame.Rect(WIDTH//2 - 100, window_y + 170, 200, 50)
-                            pygame.draw.rect(screen, RED, restart_btn, border_radius=10)
-                            pygame.draw.rect(screen, WHITE, restart_btn, 3, border_radius=10)
-                            restart_text = font_small.render("ЗАНОВО", True, WHITE)
-                            restart_rect = restart_text.get_rect(center=restart_btn.center)
-                            screen.blit(restart_text, restart_rect)
-                            continue_btn = None
-                        
-                        pygame.display.flip()
-                        
-                        waiting = True
-                        while waiting:
-                            for event in pygame.event.get():
-                                if event.type == pygame.QUIT:
-                                    pygame.quit()
-                                    sys.exit()
-                                if event.type == pygame.MOUSEBUTTONDOWN:
-                                    if game.stars > 0 and continue_btn and continue_btn.collidepoint(event.pos):
-                                        waiting = False
-                                        level_system.complete_level(size, level, game.stars)
-                                        if level < 30:
-                                            start_game(size, level + 1)
-                                            return
-                                        else:
-                                            return
-                                    if restart_btn and restart_btn.collidepoint(event.pos):
-                                        waiting = False
-                                        start_game(size, level)
-                                        return
-                                if event.type == pygame.KEYDOWN:
-                                    if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
-                                        if game.stars > 0:
-                                            waiting = False
-                                            level_system.complete_level(size, level, game.stars)
-                                            if level < 30:
-                                                start_game(size, level + 1)
-                                                return
-                                            else:
-                                                return
-                                        else:
-                                            waiting = False
-                                            start_game(size, level)
-                                            return
+                        base_stars = game.calculate_stars(elapsed)
+                        game.stars = min(base_stars * 2, 3)
+                        win_message = f"ТУРНИРНАЯ ПОБЕДА! +{game.stars} ⭐⭐"
+                    else:
+                        elapsed = time.time() - game.start_time
+                        game.stars = game.calculate_stars(elapsed)
+                        win_message = f"ПОБЕДА! {game.stars} ⭐"
+                    
+                    show_victory_screen(size, level, game.stars, win_message, game_mode, elapsed)
+                    return
             else:
                 victory_timer = None
+            
+            # Проверяем поражение (только для trial и tournament)
+            if game_mode != 'study' and hasattr(game, 'start_time'):
+                elapsed = time.time() - game.start_time
+                if game.check_defeat_condition(elapsed):
+                    print(f"💀 Поражение! Время вышло: {elapsed:.1f} сек")
+                    show_defeat_screen(size, level)
+                    return
         
         pygame.display.flip()
         clock.tick(60)
+
+def show_victory_screen(size, level, stars, message, game_mode, elapsed):
+    """Показывает экран победы"""
+    theme = get_theme()
+    
+    # Затемнение
+    s = pygame.Surface((WIDTH, HEIGHT))
+    s.set_alpha(180)
+    s.fill(BLACK)
+    screen.blit(s, (0,0))
+    
+    # Белое окно
+    window_width, window_height = 550, 420
+    window_x = (WIDTH - window_width) // 2
+    window_y = (HEIGHT - window_height) // 2
+    
+    pygame.draw.rect(screen, WHITE, (window_x, window_y, window_width, window_height), border_radius=15)
+    pygame.draw.rect(screen, GOLD, (window_x, window_y, window_width, window_height), 4, border_radius=15)
+    
+    # Сообщение о победе
+    win_text = font_big.render("ПОБЕДА!", True, GOLD)
+    win_rect = win_text.get_rect(center=(WIDTH//2, window_y + 60))
+    screen.blit(win_text, win_rect)
+    
+    # Звезды
+    star_text = font_emoji_big.render("⭐" * stars, True, GOLD)
+    star_rect = star_text.get_rect(center=(WIDTH//2, window_y + 120))
+    screen.blit(star_text, star_rect)
+    
+    # Время (если не режим изучения)
+    if game_mode != 'study':
+        time_text = font_small.render(f"Время: {elapsed:.1f} сек", True, DARK_BLUE)
+        time_rect = time_text.get_rect(center=(WIDTH//2, window_y + 170))
+        screen.blit(time_text, time_rect)
+        next_level_y = 230
+        restart_y = 290
+        menu_y = 350
+    else:
+        next_level_y = 200
+        restart_y = 260
+        menu_y = 320
+    
+    # Кнопки
+    next_level = level + 1 if level < 30 else 1
+    
+    # Кнопка "УРОВЕНЬ 2"
+    continue_btn = pygame.Rect(WIDTH//2 - 150, window_y + next_level_y, 300, 50)
+    pygame.draw.rect(screen, theme.button_color, continue_btn, border_radius=12)
+    pygame.draw.rect(screen, WHITE, continue_btn, 3, border_radius=12)
+    continue_text = font_mid.render(f"УРОВЕНЬ {next_level}", True, WHITE)
+    continue_rect = continue_text.get_rect(center=continue_btn.center)
+    screen.blit(continue_text, continue_rect)
+    
+    # Кнопка "ЗАНОВО"
+    restart_btn = pygame.Rect(WIDTH//2 - 150, window_y + restart_y, 300, 50)
+    pygame.draw.rect(screen, theme.button_color, restart_btn, border_radius=12)
+    pygame.draw.rect(screen, WHITE, restart_btn, 3, border_radius=12)
+    restart_text = font_mid.render("ЗАНОВО", True, WHITE)
+    restart_rect = restart_text.get_rect(center=restart_btn.center)
+    screen.blit(restart_text, restart_rect)
+    
+    # Кнопка "В МЕНЮ"
+    menu_btn = pygame.Rect(WIDTH//2 - 150, window_y + menu_y, 300, 50)
+    pygame.draw.rect(screen, GRAY, menu_btn, border_radius=12)
+    pygame.draw.rect(screen, WHITE, menu_btn, 3, border_radius=12)
+    menu_text = font_mid.render("В МЕНЮ", True, WHITE)
+    menu_rect = menu_text.get_rect(center=menu_btn.center)
+    screen.blit(menu_text, menu_rect)
+    
+    pygame.display.flip()
+    
+    play_victory_sound()
+    
+    # Сохраняем прогресс и статистику
+    if game_mode == 'study':
+        level_system.complete_level(size, level, stars, game_mode)
+    else:
+        level_system.complete_level(size, level, stars, game_mode, elapsed)
+    
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if continue_btn.collidepoint(event.pos):
+                    waiting = False
+                    if level < 30:
+                        start_game(size, level + 1)
+                    else:
+                        return
+                if restart_btn.collidepoint(event.pos):
+                    waiting = False
+                    start_game(size, level)
+                if menu_btn.collidepoint(event.pos):
+                    waiting = False
+                    return
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
+                    waiting = False
+                    if level < 30:
+                        start_game(size, level + 1)
+                    else:
+                        return
+
+def show_defeat_screen(size, level):
+    """Показывает экран поражения"""
+    theme = get_theme()
+    
+    # Затемнение
+    s = pygame.Surface((WIDTH, HEIGHT))
+    s.set_alpha(180)
+    s.fill(BLACK)
+    screen.blit(s, (0,0))
+    
+    # Красное окно
+    window_width, window_height = 400, 250
+    window_x = (WIDTH - window_width) // 2
+    window_y = (HEIGHT - window_height) // 2
+    
+    pygame.draw.rect(screen, WHITE, (window_x, window_y, window_width, window_height), border_radius=15)
+    pygame.draw.rect(screen, RED, (window_x, window_y, window_width, window_height), 4, border_radius=15)
+    
+    # Сообщение о поражении
+    defeat_text = font_big.render("ПОРАЖЕНИЕ!", True, RED)
+    defeat_rect = defeat_text.get_rect(center=(WIDTH//2, window_y + 80))
+    screen.blit(defeat_text, defeat_rect)
+    
+    # Пояснение
+    info_text = font_small.render("Время вышло...", True, BLACK)
+    info_rect = info_text.get_rect(center=(WIDTH//2, window_y + 140))
+    screen.blit(info_text, info_rect)
+    
+    # Кнопка заново
+    restart_btn = pygame.Rect(WIDTH//2 - 100, window_y + 180, 200, 50)
+    pygame.draw.rect(screen, RED, restart_btn, border_radius=10)
+    pygame.draw.rect(screen, WHITE, restart_btn, 3, border_radius=10)
+    restart_text = font_small.render("ЗАНОВО", True, WHITE)
+    restart_rect = restart_text.get_rect(center=restart_btn.center)
+    screen.blit(restart_text, restart_rect)
+    
+    pygame.display.flip()
+    
+    play_defeat_sound()
+    
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if restart_btn.collidepoint(event.pos):
+                    waiting = False
+                    start_game(size, level)
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
+                    waiting = False
+                    start_game(size, level)
 
 def show_credits(screen, font_big, font_mid, font_small, theme):
     """Показывает титры после прохождения игры"""
@@ -1238,6 +1315,259 @@ def show_credits(screen, font_big, font_mid, font_small, theme):
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN or event.key == pygame.K_ESCAPE:
                     waiting = False
+
+def show_mode_stats():
+    """Показывает статистику по режимам"""
+    while True:
+        draw_bg()
+        mouse = pygame.mouse.get_pos()
+        theme = get_theme()
+        
+        center_x = WIDTH // 2
+        
+        # ===== ЗАГОЛОВОК В РАМКЕ =====
+        title_text = "СТАТИСТИКА РЕЖИМОВ"
+        
+        if theme.name == "Темная":
+            title_color = WHITE
+            frame_bg_color = DARK_GRAY
+        else:
+            title_color = theme.text_color
+            frame_bg_color = WHITE
+        
+        title = font_mid.render(title_text, True, title_color)
+        
+        text_height = title.get_height()
+        padding = int(text_height * 0.5)
+        
+        title_width = title.get_width() + padding * 2
+        title_height = text_height + padding * 2
+        title_x = center_x - title_width // 2
+        title_y = 40
+        
+        shadow_rect = pygame.Rect(title_x + 3, title_y + 3, title_width, title_height)
+        pygame.draw.rect(screen, (50,50,50,100), shadow_rect, border_radius=10)
+        
+        title_rect = pygame.Rect(title_x, title_y, title_width, title_height)
+        pygame.draw.rect(screen, frame_bg_color, title_rect, border_radius=10)
+        pygame.draw.rect(screen, theme.accent_color, title_rect, 2, border_radius=10)
+        
+        title_rect = title.get_rect(center=(center_x, title_y + title_height//2))
+        screen.blit(title, title_rect)
+        
+        # ===== РАМКА =====
+        frame_width = 950
+        frame_height = 430  # Уменьшил высоту
+        frame_x = center_x - frame_width // 2
+        frame_y = title_y + title_height + 25
+        
+        pygame.draw.rect(screen, theme.button_color, (frame_x, frame_y, frame_width, frame_height), border_radius=15)
+        pygame.draw.rect(screen, theme.accent_color, (frame_x, frame_y, frame_width, frame_height), 3, border_radius=15)
+        
+        inner_x = frame_x + 25
+        inner_y = frame_y + 25
+        inner_width = frame_width - 50
+        inner_height = frame_height - 50
+        
+        # ===== ШАПКА ТАБЛИЦЫ =====
+        study_col_x = inner_x + 230
+        trial_col_x = inner_x + 470
+        tour_col_x = inner_x + 710
+        
+        study_title_surf = font_tiny.render("ИЗУЧЕНИЕ", True, (100, 150, 255))
+        trial_title_surf = font_tiny.render("ИСПЫТАТЕЛЬНЫЙ", True, (255, 200, 50))
+        tour_title_surf = font_tiny.render("ТУРНИРНЫЙ", True, (255, 100, 100))
+        
+        header_y = inner_y + 10
+        
+        study_title_rect = study_title_surf.get_rect(center=(study_col_x, header_y))
+        trial_title_rect = trial_title_surf.get_rect(center=(trial_col_x, header_y))
+        tour_title_rect = tour_title_surf.get_rect(center=(tour_col_x, header_y))
+        
+        screen.blit(study_title_surf, study_title_rect)
+        screen.blit(trial_title_surf, trial_title_rect)
+        screen.blit(tour_title_surf, tour_title_rect)
+        
+        header_line_y = header_y + 15
+        pygame.draw.line(screen, theme.accent_color, (inner_x, header_line_y), (inner_x + inner_width, header_line_y), 2)
+        
+        # ===== СТАТИСТИКА =====
+        start_y = header_line_y + 15
+        row_height = 55
+        
+        study_stats = level_system.mode_stats.get('study', {'games': 0, 'wins': 0})
+        trial_stats = level_system.mode_stats.get('trial', {'games': 0, 'wins': 0, 'best_time': None, 'total_stars': 0, 'best_stars': 0})
+        tour_stats = level_system.mode_stats.get('tournament', {'games': 0, 'wins': 0, 'best_time': None, 'total_stars': 0, 'best_stars': 0})
+        
+        label_x = inner_x
+        
+        study_pct = (study_stats.get('wins', 0) / study_stats.get('games', 1) * 100) if study_stats.get('games', 0) > 0 else 0
+        trial_pct = (trial_stats.get('wins', 0) / trial_stats.get('games', 1) * 100) if trial_stats.get('games', 0) > 0 else 0
+        tour_pct = (tour_stats.get('wins', 0) / tour_stats.get('games', 1) * 100) if tour_stats.get('games', 0) > 0 else 0
+        
+        rows = [
+            {'label': "Игр сыграно:", 'study': str(study_stats.get('games', 0)), 'trial': str(trial_stats.get('games', 0)), 'tour': str(tour_stats.get('games', 0)), 'type': 'number'},
+            {'label': "Побед:", 'study': str(study_stats.get('wins', 0)), 'trial': str(trial_stats.get('wins', 0)), 'tour': str(tour_stats.get('wins', 0)), 'type': 'number'},
+            {'label': "Процент побед:", 'study': f"{study_pct:.1f}%", 'trial': f"{trial_pct:.1f}%", 'tour': f"{tour_pct:.1f}%", 'type': 'percent'},
+            {'label': "Лучшее время:", 'study': "—", 'trial': f"{trial_stats.get('best_time', 0):.1f}с" if trial_stats.get('best_time') else "—", 'tour': f"{tour_stats.get('best_time', 0):.1f}с" if tour_stats.get('best_time') else "—", 'type': 'time'},
+            {'label': "Всего звезд:", 'study': "—", 'trial': f"⭐ {trial_stats.get('total_stars', 0)}" if trial_stats.get('total_stars', 0) > 0 else "—", 'tour': f"⭐ {tour_stats.get('total_stars', 0)}" if tour_stats.get('total_stars', 0) > 0 else "—", 'type': 'stars'},
+            {'label': "Лучший результат:", 'study': "—", 'trial': f"⭐ {trial_stats.get('best_stars', 0)}" if trial_stats.get('best_stars', 0) > 0 else "—", 'tour': f"⭐ {tour_stats.get('best_stars', 0)}" if tour_stats.get('best_stars', 0) > 0 else "—", 'type': 'stars'}
+        ]
+        
+        for i, row in enumerate(rows):
+            row_center_y = start_y + i * row_height + row_height // 2
+            
+            if i > 0:
+                line_y = start_y + i * row_height
+                pygame.draw.line(screen, theme.accent_color, (inner_x + 20, line_y), (inner_x + inner_width - 20, line_y), 1)
+            
+            label_surf = font_tiny.render(row['label'], True, theme.text_color)
+            label_rect = label_surf.get_rect(midleft=(label_x, row_center_y))
+            screen.blit(label_surf, label_rect)
+            
+            if row['study'] != "—":
+                study_surf = font_tiny.render(row['study'], True, theme.accent_color)
+            else:
+                study_surf = font_tiny.render(row['study'], True, theme.text_color)
+            study_rect = study_surf.get_rect(center=(study_col_x, row_center_y))
+            screen.blit(study_surf, study_rect)
+            
+            if row['type'] == 'stars' and row['trial'] != "—":
+                trial_surf = font_emoji_small.render(row['trial'], True, GOLD)
+            elif row['trial'] != "—":
+                trial_surf = font_tiny.render(row['trial'], True, theme.accent_color)
+            else:
+                trial_surf = font_tiny.render(row['trial'], True, theme.text_color)
+            trial_rect = trial_surf.get_rect(center=(trial_col_x, row_center_y))
+            screen.blit(trial_surf, trial_rect)
+            
+            if row['type'] == 'stars' and row['tour'] != "—":
+                tour_surf = font_emoji_small.render(row['tour'], True, GOLD)
+            elif row['tour'] != "—":
+                tour_surf = font_tiny.render(row['tour'], True, theme.accent_color)
+            else:
+                tour_surf = font_tiny.render(row['tour'], True, theme.text_color)
+            tour_rect = tour_surf.get_rect(center=(tour_col_x, row_center_y))
+            screen.blit(tour_surf, tour_rect)
+        
+        # ===== КНОПКА НАЗАД (ПОДНЯТА) =====
+        back_btn = pygame.Rect(center_x - 100, frame_y + frame_height + 5, 200, 60)
+        pygame.draw.rect(screen, GRAY, back_btn, border_radius=15)
+        pygame.draw.rect(screen, DARK_GRAY, back_btn, 3, border_radius=15)
+        back_text = font_small.render("НАЗАД", True, WHITE)
+        back_rect = back_text.get_rect(center=back_btn.center)
+        screen.blit(back_text, back_rect)
+        
+        music_btns = draw_music_player()
+        
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            
+            if e.type == pygame.MOUSEBUTTONDOWN:
+                if back_btn.collidepoint(e.pos):
+                    return
+                
+                if music_btns:
+                    prev, play, next_btn = music_btns
+                    if prev.collidepoint(e.pos):
+                        prev_track()
+                    if play.collidepoint(e.pos):
+                        toggle_music()
+                    if next_btn.collidepoint(e.pos):
+                        next_track()
+        
+        pygame.display.flip()
+        clock.tick(60)
+
+# ===== ФУНКЦИЯ УВЕДОМЛЕНИЯ (ОПРЕДЕЛЯЕМ ПЕРВОЙ) =====
+def show_cheat_notification():
+    """Показывает уведомление об активации чита"""
+    theme = get_theme()
+    
+    s = pygame.Surface((WIDTH, HEIGHT))
+    s.set_alpha(180)
+    s.fill(BLACK)
+    screen.blit(s, (0,0))
+    
+    # Окно
+    window_width, window_height = 600, 380
+    window_x = (WIDTH - window_width) // 2
+    window_y = (HEIGHT - window_height) // 2
+    
+    pygame.draw.rect(screen, WHITE, (window_x, window_y, window_width, window_height), border_radius=15)
+    pygame.draw.rect(screen, (200, 150, 255), (window_x, window_y, window_width, window_height), 4, border_radius=15)
+    
+    # Заголовок (обычный шрифт)
+    title = font_mid.render("ЧИТ-КОД АКТИВИРОВАН!", True, (200, 150, 255))
+    title_rect = title.get_rect(center=(WIDTH//2, window_y + 50))
+    screen.blit(title, title_rect)
+    
+    # Код VINDIGO4 (обычный шрифт, крупно)
+    code = font_big.render("VINDIGO4", True, GOLD)
+    code_rect = code.get_rect(center=(WIDTH//2, window_y + 110))
+    screen.blit(code, code_rect)
+    
+    # Строка 1: галочка через эмодзи-шрифт, текст через обычный
+    check = font_emoji.render("✅", True, (0, 200, 0))
+    screen.blit(check, (window_x + 150, window_y + 160))
+    line1 = font_small.render("Все уровни открыты", True, BLACK)
+    screen.blit(line1, (window_x + 190, window_y + 160))
+    
+    # Строка 2: звезда через эмодзи-шрифт, текст через обычный
+    star = font_emoji.render("⭐", True, GOLD)
+    screen.blit(star, (window_x + 150, window_y + 200))
+    line2 = font_small.render("270 звезд получено", True, GOLD)
+    screen.blit(line2, (window_x + 190, window_y + 200))
+    
+    # Строка 3: замочек через эмодзи-шрифт, текст через обычный
+    lock = font_emoji.render("🔓", True, DARK_BLUE)
+    screen.blit(lock, (window_x + 150, window_y + 240))
+    line3 = font_small.render("Режим 12x12 доступен!", True, DARK_BLUE)
+    screen.blit(line3, (window_x + 190, window_y + 240))
+    
+    # Строка 4: сердечко через эмодзи-шрифт
+    heart = font_emoji.render("❤️", True, RED)
+    screen.blit(heart, (window_x + 150, window_y + 280))
+    line4 = font_tiny.render("Спасибо за игру!", True, GRAY)
+    screen.blit(line4, (window_x + 190, window_y + 280))
+    
+    pygame.display.flip()
+    time.sleep(2.5)
+
+# ===== ФУНКЦИЯ АКТИВАЦИИ ЧИТА =====
+def activate_cheat():
+    """Активирует чит-код VINDIGO4: все уровни открыты, 270 звезд"""
+    
+    # Открываем все уровни
+    for size in [3, 6, 9, 12]:
+        level_system.unlocked_levels[size] = 30
+    
+    # Даем по 90 звезд на каждый размер
+    for size in [3, 6, 9, 12]:
+        for level in range(1, 31):
+            level_system.stars[size][level] = 3
+    
+    # Обновляем статистику режимов
+    level_system.mode_stats['study']['games'] = 30
+    level_system.mode_stats['study']['wins'] = 30
+    
+    level_system.mode_stats['trial']['games'] = 30
+    level_system.mode_stats['trial']['wins'] = 30
+    level_system.mode_stats['trial']['total_stars'] = 90
+    level_system.mode_stats['trial']['best_stars'] = 3
+    level_system.mode_stats['trial']['best_time'] = 5.0
+    
+    level_system.mode_stats['tournament']['games'] = 30
+    level_system.mode_stats['tournament']['wins'] = 30
+    level_system.mode_stats['tournament']['total_stars'] = 90
+    level_system.mode_stats['tournament']['best_stars'] = 3
+    level_system.mode_stats['tournament']['best_time'] = 4.5
+    
+    save_system.save_progress(level_system.unlocked_levels, level_system.stars, level_system.mode_stats)
+    show_cheat_notification()  # Теперь функция определена выше
+
 
 if __name__ == "__main__":
     exp_choice()

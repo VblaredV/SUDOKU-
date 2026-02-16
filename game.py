@@ -22,21 +22,26 @@ class Game:
         self.check_mode = False
         self.victory_shown = False
         self.highlight_cells = {}
+        self.game_mode = 'trial'
         
         if size == 3:
             self.max_number = 6
             self.grid_offset_x = GRID_OFFSET_X_3
+            self.cell_size = CELL_SIZE
         elif size == 6:
             self.max_number = 6
             self.grid_offset_x = GRID_OFFSET_X_6
+            self.cell_size = CELL_SIZE
         elif size == 9:
             self.max_number = 9
             self.grid_offset_x = GRID_OFFSET_X_9
-        else:
+            self.cell_size = CELL_SIZE
+        else:  # size == 12
             self.max_number = 12
             self.grid_offset_x = GRID_OFFSET_X_12
-            
-        self.grid_offset_y = GRID_OFFSET_Y
+            self.cell_size = CELL_SIZE_12  # Используем уменьшенный размер
+        
+        self.grid_offset_y = GRID_OFFSET_Y if size != 12 else GRID_OFFSET_Y_12
         
         # Загружаем шрифт с эмодзи
         self.emoji_font = self.load_emoji_font()
@@ -111,25 +116,32 @@ class Game:
         pygame.draw.rect(screen, theme.accent_color, (field_x, field_y, field_width, field_height), 3, border_radius=15)
         screen.blit(field_surface, (50, 30))
         
-        # Таймер в рамке
-        elapsed = int(time.time() - self.start_time)
-        minutes = elapsed // 60
-        seconds = elapsed % 60
-        timer_text = f"{minutes:02d}:{seconds:02d}"
-        timer = font.render(timer_text, True, theme.text_color)
-        
-        timer_padding = 15
-        timer_width = timer.get_width() + timer_padding * 2
-        timer_height = timer.get_height() + timer_padding
-        timer_x = 1150 - timer_width + timer_padding
-        timer_y = 30 - timer_padding//2
-        
-        pygame.draw.rect(screen, theme.button_color, (timer_x, timer_y, timer_width, timer_height), border_radius=15)
-        pygame.draw.rect(screen, theme.accent_color, (timer_x, timer_y, timer_width, timer_height), 3, border_radius=15)
-        
-        timer_rect = timer.get_rect()
-        timer_rect.topright = (1150, 30)
-        screen.blit(timer, timer_rect)
+        # Таймер в рамке (ТОЛЬКО если не режим изучения)
+        if hasattr(self, 'game_mode') and self.game_mode != 'study':
+            if hasattr(self, 'start_time'):
+                elapsed = int(time.time() - self.start_time)
+                minutes = elapsed // 60
+                seconds = elapsed % 60
+                timer_text = f"{minutes:02d}:{seconds:02d}"
+                timer = font.render(timer_text, True, theme.text_color)
+                
+                timer_padding = 15
+                timer_width = timer.get_width() + timer_padding * 2
+                timer_height = timer.get_height() + timer_padding
+                timer_x = 1150 - timer_width + timer_padding
+                timer_y = 30 - timer_padding//2
+                
+                pygame.draw.rect(screen, theme.button_color, (timer_x, timer_y, timer_width, timer_height), border_radius=15)
+                pygame.draw.rect(screen, theme.accent_color, (timer_x, timer_y, timer_width, timer_height), 3, border_radius=15)
+                
+                timer_rect = timer.get_rect()
+                timer_rect.topright = (1150, 30)
+                screen.blit(timer, timer_rect)
+        else:
+            # В режиме изучения показываем иконку 📚 вместо таймера
+            study_icon = self.emoji_font.render("📚", True, theme.accent_color)
+            icon_rect = study_icon.get_rect(topright=(1150, 30))
+            screen.blit(study_icon, icon_rect)
         
         # Кнопки
         button_width = 280
@@ -167,6 +179,12 @@ class Game:
         if self.selected: 
             self.draw_selected(screen)
         
+        # Подсказка для 12x12
+        if self.size == 12:
+            hint_font = pygame.font.Font(None, 20)
+            hint_text = hint_font.render("0=10  -=11  ==12", True, theme.accent_color)
+            screen.blit(hint_text, (self.grid_offset_x, self.grid_offset_y + self.size*self.cell_size + 10))
+        
         if self.show_rules and not self.rules_shown:
             self.show_rules_popup(screen, font)
             self.rules_shown = True
@@ -191,30 +209,29 @@ class Game:
         for i in range(self.size + 1):
             w = 3 if i % block_size == 0 else 1
             pygame.draw.line(screen, theme.grid_color,
-                           (start_x, start_y + i*CELL_SIZE), 
-                           (start_x + self.size*CELL_SIZE, start_y + i*CELL_SIZE), w)
+                        (start_x, start_y + i * self.cell_size), 
+                        (start_x + self.size * self.cell_size, start_y + i * self.cell_size), w)
             pygame.draw.line(screen, theme.grid_color,
-                           (start_x + i*CELL_SIZE, start_y), 
-                           (start_x + i*CELL_SIZE, start_y + self.size*CELL_SIZE), w)
-    
-    def draw_highlights(self, screen):
-        if not self.check_mode:
-            return
-            
-        start_x = self.grid_offset_x
-        start_y = self.grid_offset_y
+                        (start_x + i * self.cell_size, start_y), 
+                        (start_x + i * self.cell_size, start_y + self.size * self.cell_size), w)
         
-        for r in range(self.size):
-            for c in range(self.size):
-                if (r, c) in self.highlight_cells:
-                    color = self.highlight_cells[(r, c)]
-                    s = pygame.Surface((CELL_SIZE-2, CELL_SIZE-2))
-                    s.set_alpha(150)
-                    s.fill(color)
-                    screen.blit(s, (start_x + 1 + c*CELL_SIZE, start_y + 1 + r*CELL_SIZE))
-    
+    def draw_highlights(self, screen):
+            if not self.check_mode:
+                return
+                
+            start_x = self.grid_offset_x
+            start_y = self.grid_offset_y
+            
+            for r in range(self.size):
+                for c in range(self.size):
+                    if (r, c) in self.highlight_cells:
+                        color = self.highlight_cells[(r, c)]
+                        s = pygame.Surface((self.cell_size-2, self.cell_size-2))
+                        s.set_alpha(150)
+                        s.fill(color)
+                        screen.blit(s, (start_x + 1 + c*self.cell_size, start_y + 1 + r*self.cell_size))
+            
     def draw_numbers(self, screen, font):
-        # КАЖДЫЙ КАДР берем свежую тему
         theme = get_theme()
         start_x = self.grid_offset_x
         start_y = self.grid_offset_y
@@ -228,28 +245,59 @@ class Game:
                     else:
                         color = BLACK if self.original_board[r][c] != 0 else theme.button_color
                     
-                    text = font.render(str(n), True, color)
-                    x = start_x + c*CELL_SIZE + (CELL_SIZE - text.get_width())//2
-                    y = start_y + r*CELL_SIZE + (CELL_SIZE - text.get_height())//2
+                    # Для чисел 10, 11, 12 используем чуть меньший шрифт
+                    if n >= 10:
+                        text = pygame.font.Font(None, 40).render(str(n), True, color)
+                    else:
+                        text = font.render(str(n), True, color)
+                    
+                    x = start_x + c*self.cell_size + (self.cell_size - text.get_width())//2
+                    y = start_y + r*self.cell_size + (self.cell_size - text.get_height())//2
                     screen.blit(text, (x, y))
+        # ;d
+        if theme.name == "Фиолетовая" and self.size == 9:
+            self.draw_easter_egg(screen)
+
+    def draw_easter_egg(self, screen):
+        """Рисует пасхалку в фиолетовой теме на 9x9"""
+        start_x = self.grid_offset_x
+        start_y = self.grid_offset_y
+        
+        small_font = pygame.font.Font(None, 16)
+        
+        if self.board[0][0] == 0:
+            hint1 = small_font.render("V", True, (200, 150, 255))
+            screen.blit(hint1, (start_x + 5, start_y + 5))
+        
+        if self.board[0][8] == 0:
+            hint2 = small_font.render("I", True, (200, 150, 255))
+            screen.blit(hint2, (start_x + 8*self.cell_size + 5, start_y + 5))
+        
+        if self.board[8][0] == 0:
+            hint3 = small_font.render("N", True, (200, 150, 255))
+            screen.blit(hint3, (start_x + 5, start_y + 8*self.cell_size + 5))
+        
+        if self.board[8][8] == 0:
+            hint4 = small_font.render("D", True, (200, 150, 255))
+            screen.blit(hint4, (start_x + 8*self.cell_size + 5, start_y + 8*self.cell_size + 5))
     
     def draw_selected(self, screen):
         r, c = self.selected
         start_x = self.grid_offset_x
         start_y = self.grid_offset_y
         pygame.draw.rect(screen, (255,200,200), 
-                        (start_x + c*CELL_SIZE, start_y + r*CELL_SIZE, 
-                         CELL_SIZE, CELL_SIZE), 3)
+                        (start_x + c*self.cell_size, start_y + r*self.cell_size, 
+                        self.cell_size, self.cell_size), 3)
     
     def handle_click(self, pos):
         x, y = pos
         start_x = self.grid_offset_x
         start_y = self.grid_offset_y
         
-        if (start_x <= x <= start_x + self.size*CELL_SIZE and 
-            start_y <= y <= start_y + self.size*CELL_SIZE):
-            c = (x - start_x) // CELL_SIZE
-            r = (y - start_y) // CELL_SIZE
+        if (start_x <= x <= start_x + self.size*self.cell_size and 
+            start_y <= y <= start_y + self.size*self.cell_size):
+            c = (x - start_x) // self.cell_size
+            r = (y - start_y) // self.cell_size
             if r < self.size and c < self.size and self.original_board[r][c] == 0:
                 self.selected = (r, c)
             else: 
@@ -350,6 +398,47 @@ class Game:
         self.victory_shown = True
         return True
     
+    def check_victory_condition(self):
+        """Проверяет, решено ли судоку правильно"""
+        # Проверяем заполненность
+        for r in range(self.size):
+            for c in range(self.size):
+                if self.board[r][c] == 0:
+                    return False
+        
+        # Проверяем правильность
+        for r in range(self.size):
+            for c in range(self.size):
+                num = self.board[r][c]
+                if not self.is_valid_move(r, c, num):
+                    return False
+        
+        return True
+    
+    def check_defeat_condition(self, elapsed):
+        """Проверяет, проиграл ли игрок (только для trial и tournament)"""
+        from constants import STAR_TIMES, DEFEAT_MULTIPLIER
+        
+        # В режиме изучения поражения нет
+        if not hasattr(self, 'game_mode') or self.game_mode == 'study':
+            return False
+        
+        # Базовое время на поражение (в 2 раза больше бронзы)
+        if self.size == 3:
+            defeat_time = 20 * DEFEAT_MULTIPLIER
+        elif self.size == 6:
+            defeat_time = 45 * DEFEAT_MULTIPLIER
+        elif self.size == 9:
+            defeat_time = 65 * DEFEAT_MULTIPLIER
+        else:
+            defeat_time = 100 * DEFEAT_MULTIPLIER
+        
+        # Для турнирного режима времени еще меньше
+        if self.game_mode == 'tournament':
+            defeat_time = defeat_time * 0.7
+        
+        return elapsed > defeat_time
+    
     def show_rules_popup(self, screen, font):
         # КАЖДЫЙ КАДР берем свежую тему
         theme = get_theme()
@@ -364,6 +453,12 @@ class Game:
         pygame.draw.rect(screen, WHITE, popup_rect)
         pygame.draw.rect(screen, theme.accent_color, popup_rect, 5)
         
+        if theme.name == "Фиолетовая" and self.size == 9:
+            # В самом низу правил, мелким шрифтом
+            easter_font = pygame.font.Font(None, 16)
+            easter_text = easter_font.render("PS: VINDIGO4 - это ключ...", True, (200, 150, 255))
+            screen.blit(easter_text, (400, 820))
+
         # Заголовок
         title = pygame.font.Font(None, 48).render("ПРАВИЛА ИГРЫ СУДОКУ", True, theme.accent_color)
         title_rect = title.get_rect(center=(WIDTH//2, popup_y + 50))
@@ -428,6 +523,20 @@ class Game:
             "5. КЛАВИАТУРА:",
             "   • Цифры 1-9 - ввести цифру",
             "   • DELETE/BACKSPACE - стереть цифру",
+        ]
+
+        # Добавляем правила для 12x12 если нужно
+        if self.size == 12:
+            rules_texts.extend([
+                "",
+                "ДЛЯ 12x12:",
+                "   • 0 - ввести 10",
+                "   • - (минус) - ввести 11",
+                "   • = (равно) - ввести 12"
+            ])
+
+        # Продолжаем основной список
+        rules_texts.extend([
             "",
             "6. КНОПКИ:",
             "   • МЕНЮ - вернуться в главное меню",
@@ -449,9 +558,9 @@ class Game:
             "ЖЕЛАЕМ УДАЧИ!",
             "",
             "Над проектом работали",
-            "Ученики 9г класса:"
+            "Ученики 9г класса:",
             "Бортников А.С. и Ломтев А.И."
-        ]
+        ])
         
         # Параметры прокрутки
         scroll_y = 0
@@ -489,7 +598,7 @@ class Game:
                     
                     # Проверка клика по ползунку
                     if scroll_bar_x <= event.pos[0] <= scroll_bar_x + 15 and \
-                    scroll_bar_y <= event.pos[1] <= scroll_bar_y + scroll_bar_height:
+                       scroll_bar_y <= event.pos[1] <= scroll_bar_y + scroll_bar_height:
                         dragging = True
                         # Перемещение ползунка к месту клика
                         rel_y = event.pos[1] - scroll_bar_y

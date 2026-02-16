@@ -12,8 +12,10 @@ GRID_OFFSET_X_6 = (WIDTH - 6*CELL_SIZE) // 2
 # Для 9x9 - смещаем левее
 GRID_OFFSET_X_9 = 200
 
-# Для 12x12 - тоже чуть левее
-GRID_OFFSET_X_12 = 150
+# Для 12x12 - УМЕНЬШАЕМ размер клеток и смещаем
+CELL_SIZE_12 = 50  # Уменьшенный размер клетки для 12x12
+GRID_OFFSET_X_12 = 100  # Новый отступ
+GRID_OFFSET_Y_12 = 180  # Новый отступ по вертикали
 
 # Вертикальный отступ для всех
 GRID_OFFSET_Y = 200
@@ -83,3 +85,28 @@ def set_theme(theme_name):
 def get_theme_name():
     """Возвращает название текущей темы"""
     return _current_theme
+
+# Режимы игры
+GAME_MODES = {
+    'study': 'Режим изучения',
+    'trial': 'Испытательный режим',
+    'tournament': 'Турнирный режим'
+}
+
+# Время для звезд (в секундах) - базовое
+STAR_TIMES = {
+    3: {'gold': 10, 'silver': 15, 'bronze': 20},
+    6: {'gold': 25, 'silver': 35, 'bronze': 45},
+    9: {'gold': 45, 'silver': 55, 'bronze': 65},
+    12: {'gold': 60, 'silver': 80, 'bronze': 100}
+}
+
+# Множители времени для режимов
+TIME_MULTIPLIERS = {
+    'study': None,      # таймер отключен
+    'trial': 1.0,       # обычное время
+    'tournament': 0.7   # 70% времени (сложнее)
+}
+
+# Время на поражение (в 2 раза больше бронзы)
+DEFEAT_MULTIPLIER = 2.0
