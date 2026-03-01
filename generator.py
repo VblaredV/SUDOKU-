@@ -1,13 +1,210 @@
 import random
-import copy
 
 class SudokuGenerator:
     def __init__(self):
         self.used_patterns = {3: [], 6: [], 9: [], 12: []}
-        self.max_attempts = 50
+        
+        # ===== ШАБЛОН ДЛЯ 12x12 (ТОЛЬКО ОДИН) =====
+        self.template_12x12 = [
+            [1,2,3,4,5,6,7,8,9,10,11,12],
+            [4,5,6,7,8,9,10,11,12,1,2,3],
+            [7,8,9,10,11,12,1,2,3,4,5,6],
+            [10,11,12,1,2,3,4,5,6,7,8,9],
+            [2,3,4,5,6,7,8,9,10,11,12,1],
+            [5,6,7,8,9,10,11,12,1,2,3,4],
+            [8,9,10,11,12,1,2,3,4,5,6,7],
+            [11,12,1,2,3,4,5,6,7,8,9,10],
+            [3,4,5,6,7,8,9,10,11,12,1,2],
+            [6,7,8,9,10,11,12,1,2,3,4,5],
+            [9,10,11,12,1,2,3,4,5,6,7,8],
+            [12,1,2,3,4,5,6,7,8,9,10,11]
+        ]
+        
+        # ===== ШАБЛОНЫ ДЛЯ 9x9 =====
+        self.templates_9x9 = [
+            [
+                [1,2,3,4,5,6,7,8,9],
+                [4,5,6,7,8,9,1,2,3],
+                [7,8,9,1,2,3,4,5,6],
+                [2,3,1,5,6,4,8,9,7],
+                [5,6,4,8,9,7,2,3,1],
+                [8,9,7,2,3,1,5,6,4],
+                [3,1,2,6,4,5,9,7,8],
+                [6,4,5,9,7,8,3,1,2],
+                [9,7,8,3,1,2,6,4,5]
+            ],
+            [
+                [9,8,7,6,5,4,3,2,1],
+                [6,5,4,3,2,1,9,8,7],
+                [3,2,1,9,8,7,6,5,4],
+                [8,7,6,5,4,3,2,1,9],
+                [5,4,3,2,1,9,8,7,6],
+                [2,1,9,8,7,6,5,4,3],
+                [7,6,5,4,3,2,1,9,8],
+                [4,3,2,1,9,8,7,6,5],
+                [1,9,8,7,6,5,4,3,2]
+            ]
+        ]
+        
+        # ===== ШАБЛОНЫ ДЛЯ 6x6 =====
+        self.templates_6x6 = [
+            [
+                [1,2,3,4,5,6],
+                [4,5,6,1,2,3],
+                [2,3,1,5,6,4],
+                [5,6,4,2,3,1],
+                [3,1,2,6,4,5],
+                [6,4,5,3,1,2]
+            ],
+            [
+                [6,5,4,3,2,1],
+                [3,2,1,6,5,4],
+                [5,4,6,2,1,3],
+                [2,1,3,5,4,6],
+                [4,6,5,1,3,2],
+                [1,3,2,4,6,5]
+            ]
+        ]
+        
+        # ===== ШАБЛОНЫ ДЛЯ 3x3 =====
+        self.templates_3x3 = [
+            [[1,2,3], [4,5,6], [2,3,1]],
+            [[2,3,1], [5,6,4], [3,1,2]],
+            [[3,1,2], [6,4,5], [1,2,3]],
+            [[4,5,6], [1,2,3], [5,6,4]],
+            [[5,6,4], [2,3,1], [6,4,5]],
+            [[6,4,5], [3,1,2], [4,5,6]]
+        ]
     
+    # ===== 12x12 - БОНУСНЫЙ УРОВЕНЬ (ТОЛЬКО 1) =====
+    def generate_12x12(self):
+        """Генерирует супер-легкий бонусный уровень - почти полностью заполненный"""
+        
+        # Берем готовый шаблон
+        puzzle = [row[:] for row in self.template_12x12]
+        
+        # Делаем пустыми только 8-12 клеток
+        all_positions = [(r, c) for r in range(12) for c in range(12)]
+        random.shuffle(all_positions)
+        
+        empty_cells = random.randint(8, 12)
+        
+        for i in range(empty_cells):
+            r, c = all_positions[i]
+            puzzle[r][c] = 0
+        
+        # Проверяем, чтобы в каждой строке было не больше 2 пустых клеток
+        for r in range(12):
+            empty_in_row = [c for c in range(12) if puzzle[r][c] == 0]
+            if len(empty_in_row) > 2:
+                for c in empty_in_row[2:]:
+                    puzzle[r][c] = self.template_12x12[r][c]
+        
+        # Проверяем столбцы
+        for c in range(12):
+            empty_in_col = [r for r in range(12) if puzzle[r][c] == 0]
+            if len(empty_in_col) > 2:
+                for r in empty_in_col[2:]:
+                    puzzle[r][c] = self.template_12x12[r][c]
+        
+        final_empty = sum(1 for r in range(12) for c in range(12) if puzzle[r][c] == 0)
+        print(f"🎁 Бонусный уровень 12x12: {final_empty} пустых клеток")
+        
+        return puzzle
+    
+    # ===== 9x9 =====
+    def generate_9x9(self, level_num):
+        """Генерирует поле 9x9"""
+        
+        template = random.choice(self.templates_9x9)
+        board = [row[:] for row in template]
+        
+        # Количество подсказок зависит от уровня
+        if level_num <= 10:
+            clues = random.randint(32, 36)
+        elif level_num <= 20:
+            clues = random.randint(28, 32)
+        else:
+            clues = random.randint(24, 28)
+        
+        puzzle = [[0]*9 for _ in range(9)]
+        all_positions = [(r, c) for r in range(9) for c in range(9)]
+        random.shuffle(all_positions)
+        
+        for i in range(clues):
+            r, c = all_positions[i]
+            puzzle[r][c] = board[r][c]
+        
+        return puzzle
+    
+    # ===== 6x6 =====
+    def generate_6x6(self, level_num):
+        """Генерирует поле 6x6"""
+        
+        template = random.choice(self.templates_6x6)
+        board = [row[:] for row in template]
+        
+        if level_num <= 10:
+            clues = random.randint(16, 20)
+        elif level_num <= 20:
+            clues = random.randint(12, 16)
+        else:
+            clues = random.randint(8, 12)
+        
+        puzzle = [[0]*6 for _ in range(6)]
+        all_positions = [(r, c) for r in range(6) for c in range(6)]
+        random.shuffle(all_positions)
+        
+        for i in range(clues):
+            r, c = all_positions[i]
+            puzzle[r][c] = board[r][c]
+        
+        return puzzle
+    
+    # ===== 3x3 =====
+    def generate_3x3(self, level_num):
+        """Генерирует поле 3x3"""
+        
+        template = random.choice(self.templates_3x3)
+        
+        if level_num <= 10:
+            clues = 5
+        elif level_num <= 20:
+            clues = 4
+        else:
+            clues = 3
+        
+        puzzle = [[0,0,0], [0,0,0], [0,0,0]]
+        all_positions = [(r,c) for r in range(3) for c in range(3)]
+        random.shuffle(all_positions)
+        
+        for i in range(clues):
+            r, c = all_positions[i]
+            puzzle[r][c] = template[r][c]
+        
+        return puzzle
+    
+    # ===== ОСНОВНОЙ МЕТОД =====
     def generate(self, size, level_num):
-        for _ in range(self.max_attempts):
+        """Основной метод генерации"""
+        
+        if size == 3:
+            board = self.generate_3x3(level_num)
+        elif size == 6:
+            board = self.generate_6x6(level_num)
+        elif size == 9:
+            board = self.generate_9x9(level_num)
+        else:  # size == 12
+            board = self.generate_12x12()
+        
+        # Проверка на дубликаты
+        pattern = ''.join(str(cell) for row in board for cell in row)
+        if pattern not in self.used_patterns[size]:
+            self.used_patterns[size].append(pattern)
+            return board
+        
+        # Если дубликат, пробуем еще раз (до 3 попыток)
+        for _ in range(3):
             if size == 3:
                 board = self.generate_3x3(level_num)
             elif size == 6:
@@ -15,269 +212,14 @@ class SudokuGenerator:
             elif size == 9:
                 board = self.generate_9x9(level_num)
             else:
-                board = self.generate_12x12(level_num)
+                board = self.generate_12x12()
             
-            if not self.is_duplicate(board, size):
-                pattern = self.board_to_string(board)
+            pattern = ''.join(str(cell) for row in board for cell in row)
+            if pattern not in self.used_patterns[size]:
                 self.used_patterns[size].append(pattern)
                 return board
-        return self.generate_fallback(size, level_num)
-    
-    def generate_3x3(self, level_num):
-        """Генерирует поле 3x3 с цифрами 1-6"""
-        templates = [
-            [[1, 2, 3],
-             [4, 5, 6],
-             [2, 3, 1]],
-            
-            [[2, 3, 1],
-             [5, 6, 4],
-             [3, 1, 2]],
-            
-            [[3, 1, 2],
-             [6, 4, 5],
-             [1, 2, 3]],
-            
-            [[4, 5, 6],
-             [1, 2, 3],
-             [5, 6, 4]],
-            
-            [[5, 6, 4],
-             [2, 3, 1],
-             [6, 4, 5]],
-            
-            [[6, 4, 5],
-             [3, 1, 2],
-             [4, 5, 6]]
-        ]
-        
-        solution = random.choice(templates)
-        
-        # Определяем количество цифр
-        if level_num <= 10:
-            num_clues = 5
-        elif level_num <= 20:
-            num_clues = 4
-        else:
-            num_clues = 3
-        
-        board = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
-        all_positions = [(0,0), (0,1), (0,2), (1,0), (1,1), (1,2), (2,0), (2,1), (2,2)]
-        random.shuffle(all_positions)
-        clue_positions = all_positions[:num_clues]
-        
-        for r, c in clue_positions:
-            board[r][c] = solution[r][c]
         
         return board
-    
-    def generate_6x6(self, level_num):
-        """Генерирует поле 6x6 с цифрами 1-6 - УСЛОЖНЕННОЕ"""
-        # Несколько базовых сложных паттернов для 6x6
-        templates = [
-            # Паттерн 1 - хаотичный
-            [[1, 2, 3, 4, 5, 6],
-             [4, 5, 6, 1, 2, 3],
-             [2, 3, 1, 5, 6, 4],
-             [5, 6, 4, 2, 3, 1],
-             [3, 1, 2, 6, 4, 5],
-             [6, 4, 5, 3, 1, 2]],
-            
-            # Паттерн 2 - перетасованный
-            [[2, 1, 4, 3, 6, 5],
-             [5, 6, 3, 4, 1, 2],
-             [1, 3, 2, 5, 4, 6],
-             [4, 5, 6, 2, 3, 1],
-             [3, 2, 1, 6, 5, 4],
-             [6, 4, 5, 1, 2, 3]],
-            
-            # Паттерн 3 - диагональный
-            [[3, 4, 5, 6, 1, 2],
-             [6, 1, 2, 3, 4, 5],
-             [2, 3, 4, 5, 6, 1],
-             [5, 6, 1, 2, 3, 4],
-             [1, 2, 3, 4, 5, 6],
-             [4, 5, 6, 1, 2, 3]],
-            
-            # Паттерн 4 - сложный
-            [[4, 5, 6, 1, 2, 3],
-             [1, 2, 3, 4, 5, 6],
-             [6, 1, 2, 3, 4, 5],
-             [3, 4, 5, 6, 1, 2],
-             [5, 6, 1, 2, 3, 4],
-             [2, 3, 4, 5, 6, 1]]
-        ]
-        
-        solution = random.choice(templates)
-        
-        # Перемешиваем строки в пределах блоков для дополнительной сложности
-        for block in range(0, 6, 2):
-            rows = list(range(block, block+2))
-            random.shuffle(rows)
-            temp = [solution[r][:] for r in rows]
-            for i, r in enumerate(rows):
-                solution[block + i] = temp[i]
-        
-        # Определяем количество цифр (чем выше уровень, тем меньше подсказок)
-        if level_num <= 10:
-            num_clues = random.randint(16, 20)  # Легкий: 16-20 цифр
-        elif level_num <= 20:
-            num_clues = random.randint(12, 16)  # Средний: 12-16 цифр
-        else:
-            num_clues = random.randint(8, 12)   # Сложный: 8-12 цифр
-        
-        board = [[0]*6 for _ in range(6)]
-        all_positions = [(r, c) for r in range(6) for c in range(6)]
-        random.shuffle(all_positions)
-        
-        # Выбираем позиции так, чтобы они были равномерно распределены
-        clue_positions = all_positions[:num_clues]
-        
-        for r, c in clue_positions:
-            board[r][c] = solution[r][c]
-        
-        print(f"6x6 Уровень {level_num}: {num_clues} подсказок")
-        return board
-    
-    def generate_9x9(self, level_num):
-        """Генерирует поле 9x9 с цифрами 1-9 - УСЛОЖНЕННОЕ"""
-        # Несколько сложных паттернов для 9x9
-        templates = [
-            # Паттерн 1 - классический
-            [[1, 2, 3, 4, 5, 6, 7, 8, 9],
-             [4, 5, 6, 7, 8, 9, 1, 2, 3],
-             [7, 8, 9, 1, 2, 3, 4, 5, 6],
-             [2, 3, 1, 5, 6, 4, 8, 9, 7],
-             [5, 6, 4, 8, 9, 7, 2, 3, 1],
-             [8, 9, 7, 2, 3, 1, 5, 6, 4],
-             [3, 1, 2, 6, 4, 5, 9, 7, 8],
-             [6, 4, 5, 9, 7, 8, 3, 1, 2],
-             [9, 7, 8, 3, 1, 2, 6, 4, 5]],
-            
-            # Паттерн 2 - перетасованный
-            [[2, 3, 4, 5, 6, 7, 8, 9, 1],
-             [5, 6, 7, 8, 9, 1, 2, 3, 4],
-             [8, 9, 1, 2, 3, 4, 5, 6, 7],
-             [3, 4, 5, 6, 7, 8, 9, 1, 2],
-             [6, 7, 8, 9, 1, 2, 3, 4, 5],
-             [9, 1, 2, 3, 4, 5, 6, 7, 8],
-             [4, 5, 6, 7, 8, 9, 1, 2, 3],
-             [7, 8, 9, 1, 2, 3, 4, 5, 6],
-             [1, 2, 3, 4, 5, 6, 7, 8, 9]],
-            
-            # Паттерн 3 - зигзаг
-            [[1, 4, 7, 2, 5, 8, 3, 6, 9],
-             [2, 5, 8, 3, 6, 9, 4, 7, 1],
-             [3, 6, 9, 4, 7, 1, 5, 8, 2],
-             [4, 7, 1, 5, 8, 2, 6, 9, 3],
-             [5, 8, 2, 6, 9, 3, 7, 1, 4],
-             [6, 9, 3, 7, 1, 4, 8, 2, 5],
-             [7, 1, 4, 8, 2, 5, 9, 3, 6],
-             [8, 2, 5, 9, 3, 6, 1, 4, 7],
-             [9, 3, 6, 1, 4, 7, 2, 5, 8]],
-            
-            # Паттерн 4 - спиральный
-            [[1, 2, 3, 4, 5, 6, 7, 8, 9],
-             [6, 7, 8, 9, 1, 2, 3, 4, 5],
-             [2, 3, 4, 5, 6, 7, 8, 9, 1],
-             [7, 8, 9, 1, 2, 3, 4, 5, 6],
-             [3, 4, 5, 6, 7, 8, 9, 1, 2],
-             [8, 9, 1, 2, 3, 4, 5, 6, 7],
-             [4, 5, 6, 7, 8, 9, 1, 2, 3],
-             [9, 1, 2, 3, 4, 5, 6, 7, 8],
-             [5, 6, 7, 8, 9, 1, 2, 3, 4]]
-        ]
-        
-        solution = random.choice(templates)
-        
-        # Перемешиваем строки в пределах блоков для дополнительной сложности
-        for block in range(0, 9, 3):
-            rows = list(range(block, block+3))
-            random.shuffle(rows)
-            temp = [solution[r][:] for r in rows]
-            for i, r in enumerate(rows):
-                solution[block + i] = temp[i]
-        
-        # Определяем количество цифр (чем выше уровень, тем меньше подсказок)
-        if level_num <= 10:
-            num_clues = random.randint(30, 35)  # Легкий: 30-35 цифр
-        elif level_num <= 20:
-            num_clues = random.randint(25, 30)  # Средний: 25-30 цифр
-        else:
-            num_clues = random.randint(20, 25)  # Сложный: 20-25 цифр
-        
-        board = [[0]*9 for _ in range(9)]
-        all_positions = [(r, c) for r in range(9) for c in range(9)]
-        random.shuffle(all_positions)
-        
-        clue_positions = all_positions[:num_clues]
-        
-        for r, c in clue_positions:
-            board[r][c] = solution[r][c]
-        
-        print(f"9x9 Уровень {level_num}: {num_clues} подсказок")
-        return board
-    
-    def generate_12x12(self, level_num):
-        """Генерирует поле 12x12 (упрощенно для бонуса)"""
-        board = [[0]*12 for _ in range(12)]
-        
-        # Базовая диагональная схема
-        for i in range(12):
-            for j in range(12):
-                board[i][j] = ((i + j) % 12) + 1
-        
-        # Определяем количество цифр
-        if level_num <= 10:
-            num_clues = 60
-        elif level_num <= 20:
-            num_clues = 50
-        else:
-            num_clues = 40
-        
-        all_positions = [(r, c) for r in range(12) for c in range(12)]
-        random.shuffle(all_positions)
-        
-        # Создаем копию для удаления
-        result = [[0]*12 for _ in range(12)]
-        clue_positions = all_positions[:num_clues]
-        
-        for r, c in clue_positions:
-            result[r][c] = board[r][c]
-        
-        return result
-    
-    def is_duplicate(self, board, size):
-        pattern = self.board_to_string(board)
-        return pattern in self.used_patterns[size]
-    
-    def board_to_string(self, board):
-        return ''.join(str(cell) for row in board for cell in row)
-    
-    def generate_fallback(self, size, level_num):
-        """Запасной вариант если все паттерны повторяются"""
-        if size == 3:
-            return [[1,0,0], [0,2,0], [0,0,3]]
-        elif size == 6:
-            # Случайная доска с 12 подсказками
-            board = [[0]*6 for _ in range(6)]
-            positions = [(r,c) for r in range(6) for c in range(6)]
-            random.shuffle(positions)
-            for i in range(12):
-                r, c = positions[i]
-                board[r][c] = random.randint(1, 6)
-            return board
-        elif size == 9:
-            # Случайная доска с 25 подсказками
-            board = [[0]*9 for _ in range(9)]
-            positions = [(r,c) for r in range(9) for c in range(9)]
-            random.shuffle(positions)
-            for i in range(25):
-                r, c = positions[i]
-                board[r][c] = random.randint(1, 9)
-            return board
-        else:
-            return [[0]*12 for _ in range(12)]
 
 generator = SudokuGenerator()
 

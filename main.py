@@ -516,13 +516,12 @@ def progress_menu():
         # ===== ЗАГОЛОВОК В РАМКЕ =====
         title_text = "ТВОЙ ПРОГРЕСС"
         
-        # Определяем цвет заголовка в зависимости от темы
         if theme.name == "Темная":
             title_color = WHITE
-            frame_bg_color = DARK_GRAY  # Темный фон рамки
+            frame_bg_color = DARK_GRAY
         else:
             title_color = theme.text_color
-            frame_bg_color = WHITE  # Белый фон рамки
+            frame_bg_color = WHITE
         
         title = font_mid.render(title_text, True, title_color)
         
@@ -533,24 +532,14 @@ def progress_menu():
         title_height = text_height + padding * 2
         title_x = center_x - title_width // 2
         title_y = 80
-
-        # ;d
-        if theme.name == "Фиолетовая":
-            hint_font = pygame.font.Font(None, 20)
-            screen.blit(hint_font.render("V...", True, (200, 150, 255)), (1150, 650))
-            screen.blit(hint_font.render("...I...", True, (200, 150, 255)), (1150, 670))
-            screen.blit(hint_font.render("...N...", True, (200, 150, 255)), (1150, 690))
         
-        # Тень
         shadow_rect = pygame.Rect(title_x + 3, title_y + 3, title_width, title_height)
         pygame.draw.rect(screen, (50,50,50,100), shadow_rect, border_radius=10)
         
-        # Основная рамка - цвет фона зависит от темы
         title_rect = pygame.Rect(title_x, title_y, title_width, title_height)
         pygame.draw.rect(screen, frame_bg_color, title_rect, border_radius=10)
         pygame.draw.rect(screen, theme.accent_color, title_rect, 2, border_radius=10)
         
-        # Текст заголовка по центру рамки
         title_rect = title.get_rect(center=(center_x, title_y + title_height//2))
         screen.blit(title, title_rect)
         
@@ -577,13 +566,26 @@ def progress_menu():
         
         for i, s in enumerate([3,6,9,12]):
             completed = len(level_system.stars[s])
+            unlocked = level_system.unlocked_levels[s]  # <-- ЭТА СТРОКА БЫЛА ПРОПУЩЕНА
             stars = level_system.get_total_stars(s)
-            unlocked = level_system.unlocked_levels[s]
+            
+            # Для 12x12 максимальное значение 1, для остальных 30
+            if s == 12:
+                max_levels = 1
+                completed_display = 1 if completed > 0 else 0
+                unlocked_display = 1 if unlocked > 0 else 0
+            else:
+                max_levels = 30
+                completed_display = completed
+                unlocked_display = unlocked
             
             y = start_y + i * (text_height + padding)
             
             # Размер и количество уровней
-            size_text = font_small.render(f"{s}x{s}: {completed}/30 уровней", True, theme.text_color)
+            if s == 12:
+                size_text = font_small.render(f"{s}x{s}: {completed_display}/{max_levels} уровень", True, theme.text_color)
+            else:
+                size_text = font_small.render(f"{s}x{s}: {completed_display}/{max_levels} уровней", True, theme.text_color)
             screen.blit(size_text, (inner_x + 50, y))
             
             # Звезды
@@ -593,16 +595,11 @@ def progress_menu():
             
             # ===== СТАТУС =====
             if s == 12:
-                total_stars_all = level_system.get_total_stars()
-                if total_stars_all >= 270:
-                    status_emoji = font_emoji_small.render("🔓", True, theme.accent_color)
-                    status_text = font_small.render(f"{unlocked}/30", True, theme.text_color)
-                else:
-                    status_emoji = font_emoji_small.render("🔒", True, GRAY)
-                    status_text = font_small.render("???", True, GRAY)
+                status_emoji = font_emoji_small.render("🔓" if unlocked_display > 0 else "🔒", True, theme.accent_color if unlocked_display > 0 else GRAY)
+                status_text = font_small.render(f"{unlocked_display}/1", True, theme.text_color if unlocked_display > 0 else GRAY)
             else:
                 status_emoji = font_emoji_small.render("🔓", True, theme.text_color)
-                status_text = font_small.render(f"{unlocked}/30", True, theme.text_color)
+                status_text = font_small.render(f"{unlocked_display}/30", True, theme.text_color)
                 
             # Позиционирование справа
             status_right_x = inner_x + inner_width - 50
@@ -699,7 +696,7 @@ def size_menu():
         mouse = pygame.mouse.get_pos()
         theme = get_theme()
         
-        # ===== ЗАГОЛОВОК В РАМКЕ =====
+        # Заголовок
         title_text = "ВЫБЕРИ ПОЛЕ"
         title = font_mid.render(title_text, True, theme.accent_color)
         
@@ -728,6 +725,7 @@ def size_menu():
         
         back_btn = Button(center_btn_x, 570, btn_width, btn_height, "НАЗАД", GRAY, DARK_GRAY, 54)
         
+        # Бонусный уровень 12x12
         btn_12x12 = None
         if level_system.is_bonus_unlocked():
             btn_12x12 = Button(center_btn_x, 130, btn_width, btn_height, "12x12", GOLD, (255,215,0), 54)
@@ -786,7 +784,9 @@ def size_menu():
             pygame.draw.rect(screen, GOLD, stats_12x12_rect, border_radius=12)
             pygame.draw.rect(screen, theme.accent_color, stats_12x12_rect, 2, border_radius=12)
             
-            stats_12x12 = font_tiny.render(f"{len(level_system.stars[12])}/30", True, BLACK)
+            # Для 12x12 показываем 0/1 или 1/1
+            completed = 1 if len(level_system.stars[12]) > 0 else 0
+            stats_12x12 = font_tiny.render(f"{completed}/1", True, BLACK)
             stats_12x12_rect = stats_12x12.get_rect(midleft=(stats_12x12_x + 15, 480))
             screen.blit(stats_12x12, stats_12x12_rect)
             
@@ -839,6 +839,11 @@ def size_menu():
         clock.tick(60)
 
 def level_select(size):
+    if size == 12:
+        # Для 12x12 сразу запускаем игру (только 1 уровень)
+        start_game(12, 1)
+        return
+    
     unlocked = level_system.unlocked_levels[size]
     
     while True:
@@ -867,40 +872,24 @@ def level_select(size):
         
         back = Button(500, 750, 200, 60, "НАЗАД", GRAY, DARK_GRAY, 48)
         
-        if theme.name == "Фиолетовая" and size == 9:
-            # Маленькие буквы вокруг кнопок уровней
-            hint_font = pygame.font.Font(None, 18)
-            screen.blit(hint_font.render("V", True, (200, 150, 255)), (340, 240))
-            screen.blit(hint_font.render("I", True, (200, 150, 255)), (430, 240))
-            screen.blit(hint_font.render("N", True, (200, 150, 255)), (520, 240))
-            screen.blit(hint_font.render("D", True, (200, 150, 255)), (610, 240))
-            screen.blit(hint_font.render("I", True, (200, 150, 255)), (700, 240))
-            screen.blit(hint_font.render("G", True, (200, 150, 255)), (790, 240))
-            screen.blit(hint_font.render("O", True, (200, 150, 255)), (880, 240))
-            screen.blit(hint_font.render("4", True, (200, 150, 255)), (970, 240))
-            
-
-        # ===== ЗАГОЛОВОК ПО ЦЕНТРУ =====
+        # Заголовок
         title_text = f"УРОВНИ {size}x{size}"
         title = font_big.render(title_text, True, theme.accent_color)
         title_rect = title.get_rect(center=(WIDTH//2, 80))
         screen.blit(title, title_rect)
         
-        # ===== ИНФОРМАЦИЯ О ЗВЕЗДАХ СПРАВА =====
+        # Информация о звездах
         stars_total = level_system.get_total_stars(size)
-        
-        # Увеличили размер до 38 и опустили ниже (120 вместо 110)
-        big_font = pygame.font.Font(None, 38)  # Размер 38
+        big_font = pygame.font.Font(None, 38)
         
         star = font_emoji.render("⭐", True, GOLD)
         text1 = big_font.render("Звёзд:", True, theme.text_color)
         text2 = big_font.render(f"{stars_total}/90", True, theme.accent_color)
         
-        # Считаем общую ширину
         total_width = star.get_width() + text1.get_width() + text2.get_width() + 10
-        start_x = 1150 - total_width  # Отступ от правого края
+        start_x = 1150 - total_width
         
-        screen.blit(star, (start_x, 120))  # Опустил ниже (было 120), идеал 126
+        screen.blit(star, (start_x, 120))
         screen.blit(text1, (start_x + star.get_width() + 5, 126))
         screen.blit(text2, (start_x + star.get_width() + text1.get_width() + 10, 126))
         
@@ -1012,7 +1001,6 @@ def start_game(size, level):
                             victory_timer = None
             
             if e.type == pygame.KEYDOWN and game.selected and game_started:
-                # Обычные цифры
                 if e.key in [pygame.K_1, pygame.K_KP1]: game.place_number(1)
                 elif e.key in [pygame.K_2, pygame.K_KP2]: game.place_number(2)
                 elif e.key in [pygame.K_3, pygame.K_KP3]: game.place_number(3)
@@ -1022,7 +1010,6 @@ def start_game(size, level):
                 elif e.key in [pygame.K_7, pygame.K_KP7]: game.place_number(7) if size > 6 else None
                 elif e.key in [pygame.K_8, pygame.K_KP8]: game.place_number(8) if size > 6 else None
                 elif e.key in [pygame.K_9, pygame.K_KP9]: game.place_number(9) if size > 6 else None
-                
                 # Для 12x12 - поддержка 10, 11, 12 через комбинации
                 elif size == 12:
                     if e.key == pygame.K_0:  # 0 = 10
@@ -1031,11 +1018,8 @@ def start_game(size, level):
                         game.place_number(11)
                     elif e.key == pygame.K_EQUALS:  # = = 12
                         game.place_number(12)
-                
-                # DELETE/BACKSPACE
                 elif e.key in [pygame.K_DELETE, pygame.K_BACKSPACE]:
                     game.delete_number()
-                
                 victory_timer = None
             
             if music_btns:
@@ -1054,10 +1038,12 @@ def start_game(size, level):
             
             # Проверяем победу (для всех режимов)
             if game.check_victory_condition():
+                print(f"✅ Условие победы выполнено! Поле заполнено правильно")
                 if victory_timer is None:
                     victory_timer = time.time()
-                    print("🎉 Судоку решено правильно! Проверка...")
+                    print(f"🎉 Таймер победы запущен: {victory_timer}")
                 elif time.time() - victory_timer >= victory_delay:
+                    print(f"🎊 ПОБЕДА! Прошло {time.time() - victory_timer:.2f} сек")
                     # Победа!
                     if game_mode == 'study':
                         game.stars = 3
@@ -1068,15 +1054,30 @@ def start_game(size, level):
                         base_stars = game.calculate_stars(elapsed)
                         game.stars = min(base_stars * 2, 3)
                         win_message = f"ТУРНИРНАЯ ПОБЕДА! +{game.stars} ⭐⭐"
-                    else:
+                    else:  # trial
                         elapsed = time.time() - game.start_time
                         game.stars = game.calculate_stars(elapsed)
                         win_message = f"ПОБЕДА! {game.stars} ⭐"
                     
+                    # Для 12x12 после победы показываем титры
+                    if size == 12 and game.stars > 0:
+                        # Отмечаем, что бонусный уровень пройден
+                        if 12 not in level_system.stars or level_system.stars[12].get(1, 0) < game.stars:
+                            level_system.complete_level(size, level, game.stars, game_mode, elapsed)
+                        
+                        # Показываем титры
+                        show_credits(screen, font_big, font_mid, font_small, theme)
+                        return
+                    
+                    # Передаем время в функцию победы
                     show_victory_screen(size, level, game.stars, win_message, game_mode, elapsed)
                     return
+                else:
+                    print(f"⏳ Ожидание победы: {time.time() - victory_timer:.2f}/{victory_delay}")
             else:
-                victory_timer = None
+                if victory_timer is not None:
+                    print("❌ Условие победы нарушено, сброс таймера")
+                    victory_timer = None
             
             # Проверяем поражение (только для trial и tournament)
             if game_mode != 'study' and hasattr(game, 'start_time'):
@@ -1258,46 +1259,53 @@ def show_credits(screen, font_big, font_mid, font_small, theme):
     
     # Белое окно для титров
     credit_width = 700
-    credit_height = 500
+    credit_height = 450  # Чуть уменьшил высоту
     credit_x = (WIDTH - credit_width) // 2
-    credit_y = (HEIGHT - credit_height) // 2
+    credit_y = (HEIGHT - credit_height) // 2 - 30  # Поднял выше, чтобы освободить место для кнопки
     
     pygame.draw.rect(screen, WHITE, (credit_x, credit_y, credit_width, credit_height), border_radius=20)
     pygame.draw.rect(screen, GOLD, (credit_x, credit_y, credit_width, credit_height), 5, border_radius=20)
     
     # Заголовок
     title = font_big.render("СПАСИБО ЗА ИГРУ!", True, DARK_BLUE)
-    title_rect = title.get_rect(center=(WIDTH//2, credit_y + 80))
+    title_rect = title.get_rect(center=(WIDTH//2, credit_y + 60))
     screen.blit(title, title_rect)
     
     # Основной текст
     line1 = font_mid.render("Над проектом работали", True, BLACK)
-    line1_rect = line1.get_rect(center=(WIDTH//2, credit_y + 180))
+    line1_rect = line1.get_rect(center=(WIDTH//2, credit_y + 130))
     screen.blit(line1, line1_rect)
 
     line2 = font_small.render("ученики 9Г класса:", True, GRAY)
-    line2_rect = line2.get_rect(center=(WIDTH//2, credit_y + 250))
+    line2_rect = line2.get_rect(center=(WIDTH//2, credit_y + 180))
     screen.blit(line2, line2_rect)
     
     line3 = font_mid.render("Бортников А.С.", True, DARK_BLUE)
-    line3_rect = line3.get_rect(center=(WIDTH//2, credit_y + 310))
+    line3_rect = line3.get_rect(center=(WIDTH//2, credit_y + 230))
     screen.blit(line3, line3_rect)
     
     line4 = font_mid.render("Ломтев А.И.", True, DARK_BLUE)
-    line4_rect = line4.get_rect(center=(WIDTH//2, credit_y + 370))
+    line4_rect = line4.get_rect(center=(WIDTH//2, credit_y + 280))
     screen.blit(line4, line4_rect)
 
     # Звезды
     stars_text = font_emoji_big.render("⭐⭐⭐⭐⭐", True, GOLD)
-    stars_rect = stars_text.get_rect(center=(WIDTH//2, credit_y + 440))
+    stars_rect = stars_text.get_rect(center=(WIDTH//2, credit_y + 340))
     screen.blit(stars_text, stars_rect)
     
-    # Кнопка выхода
-    exit_btn = pygame.Rect(WIDTH//2 - 100, credit_y + 500, 200, 50)
-    pygame.draw.rect(screen, DARK_BLUE, exit_btn, border_radius=10)
-    pygame.draw.rect(screen, WHITE, exit_btn, 3, border_radius=10)
+    # ===== ОТДЕЛЬНАЯ РАМКА ДЛЯ КНОПКИ =====
+    button_width = 220
+    button_height = 60
+    button_x = WIDTH//2 - button_width//2
+    button_y = credit_y + credit_height + 20  # 20 пикселей отступа от основной рамки
+    
+    # Рамка для кнопки
+    pygame.draw.rect(screen, DARK_BLUE, (button_x, button_y, button_width, button_height), border_radius=15)
+    pygame.draw.rect(screen, GOLD, (button_x, button_y, button_width, button_height), 3, border_radius=15)
+    
+    # Текст кнопки
     exit_text = font_small.render("В МЕНЮ", True, WHITE)
-    exit_rect = exit_text.get_rect(center=exit_btn.center)
+    exit_rect = exit_text.get_rect(center=(button_x + button_width//2, button_y + button_height//2))
     screen.blit(exit_text, exit_rect)
     
     pygame.display.flip()
@@ -1310,7 +1318,9 @@ def show_credits(screen, font_big, font_mid, font_small, theme):
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if exit_btn.collidepoint(event.pos):
+                # Проверяем клик по кнопке
+                if button_x <= event.pos[0] <= button_x + button_width and \
+                   button_y <= event.pos[1] <= button_y + button_height:
                     waiting = False
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN or event.key == pygame.K_ESCAPE:

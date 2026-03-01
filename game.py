@@ -64,36 +64,24 @@ class Game:
     
     def calculate_stars(self, elapsed):
         if self.size == 3:
-            if elapsed < 10:
-                return 3
-            elif elapsed < 15:
-                return 2
-            elif elapsed < 20:
-                return 1
+            if elapsed < 10: return 3
+            elif elapsed < 15: return 2
+            elif elapsed < 20: return 1
             return 0
         elif self.size == 6:
-            if elapsed < 25:
-                return 3
-            elif elapsed < 35:
-                return 2
-            elif elapsed < 45:
-                return 1
+            if elapsed < 25: return 3
+            elif elapsed < 35: return 2
+            elif elapsed < 45: return 1
             return 0
         elif self.size == 9:
-            if elapsed < 45:
-                return 3
-            elif elapsed < 55:
-                return 2
-            elif elapsed < 65:
-                return 1
+            if elapsed < 45: return 3
+            elif elapsed < 55: return 2
+            elif elapsed < 65: return 1
             return 0
-        else:
-            if elapsed < 60:
-                return 3
-            elif elapsed < 80:
-                return 2
-            elif elapsed < 100:
-                return 1
+        else:  # size == 12
+            if elapsed < 60: return 3
+            elif elapsed < 80: return 2
+            elif elapsed < 100: return 1
             return 0
     
     def draw(self, screen, font):
@@ -329,38 +317,54 @@ class Game:
                     self.highlight_cells.clear()
     
     def is_valid_move(self, row, col, num):
+        """Проверяет, можно ли поставить число в клетку"""
+        
+        # Проверка строки
         for x in range(self.size):
             if x != col and self.board[row][x] == num:
                 return False
         
+        # Проверка столбца
         for x in range(self.size):
             if x != row and self.board[x][col] == num:
                 return False
         
-        if self.size == 9:
+        # Проверка блока (для 12x12 блоки 4x3)
+        if self.size == 12:
+            box_rows = 4
+            box_cols = 3
+            start_row = row - row % box_rows
+            start_col = col - col % box_cols
+            for i in range(box_rows):
+                for j in range(box_cols):
+                    r = start_row + i
+                    c = start_col + j
+                    if r < self.size and c < self.size:
+                        if (r != row or c != col) and self.board[r][c] == num:
+                            return False
+        elif self.size == 9:
             box_size = 3
-            start_row = row - row % 3
-            start_col = col - col % 3
-        elif self.size == 6:
-            box_size = 2
-            start_row = row - row % 2
-            start_col = col - col % 3
-        elif self.size == 3:
-            box_size = 1
-            start_row = row
-            start_col = col
-        else:
-            box_size = 4
-            start_row = row - row % 4
-            start_col = col - col % 3
-        
-        for i in range(box_size):
-            for j in range(3 if self.size in [6,12] else box_size):
-                r = start_row + i
-                c = start_col + j
-                if r < self.size and c < self.size:
+            start_row = row - row % box_size
+            start_col = col - col % box_size
+            for i in range(box_size):
+                for j in range(box_size):
+                    r = start_row + i
+                    c = start_col + j
                     if (r != row or c != col) and self.board[r][c] == num:
                         return False
+        elif self.size == 6:
+            box_rows = 2
+            box_cols = 3
+            start_row = row - row % box_rows
+            start_col = col - col % box_cols
+            for i in range(box_rows):
+                for j in range(box_cols):
+                    r = start_row + i
+                    c = start_col + j
+                    if (r != row or c != col) and self.board[r][c] == num:
+                        return False
+        # для 3x3 проверка не нужна (блок 3x3 - это всё поле)
+        
         return True
     
     def check_board(self):
@@ -400,19 +404,29 @@ class Game:
     
     def check_victory_condition(self):
         """Проверяет, решено ли судоку правильно"""
-        # Проверяем заполненность
+        
+        # Сначала проверяем заполненность
         for r in range(self.size):
             for c in range(self.size):
                 if self.board[r][c] == 0:
+                    print(f"❌ Пустая клетка в ({r},{c})")
                     return False
         
-        # Проверяем правильность
+        print("✅ Все клетки заполнены, проверяем правильность...")
+        
+        # Проверяем правильность каждого хода
         for r in range(self.size):
             for c in range(self.size):
                 num = self.board[r][c]
+                # Временно убираем число для проверки
+                self.board[r][c] = 0
                 if not self.is_valid_move(r, c, num):
+                    self.board[r][c] = num
+                    print(f"❌ Неправильное число {num} в ({r},{c})")
                     return False
+                self.board[r][c] = num
         
+        print("🎉 СУДОКУ РЕШЕНО ПРАВИЛЬНО!")
         return True
     
     def check_defeat_condition(self, elapsed):
